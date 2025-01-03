@@ -1,7 +1,10 @@
 from flask import Flask, request
-import requests
+import os
 
 app = Flask(__name__)
+
+# Get the port from the environment variable or default to 5000
+port = int(os.environ.get("PORT", 5000))
 
 # Your bot's token
 BOT_TOKEN = "7514750197:AAF4cUNMkMx8ekhIQmG7kZxRZqnRKyueiPI"
@@ -11,7 +14,7 @@ BOT_TOKEN = "7514750197:AAF4cUNMkMx8ekhIQmG7kZxRZqnRKyueiPI"
 def webhook():
     data = request.json
     print("Received data:", data)  # Debugging log
-    
+
     # Example: Process the "/start" command
     if "message" in data:
         message = data["message"]
@@ -20,7 +23,7 @@ def webhook():
             chat_id = message["chat"]["id"]
             if text == "/start":
                 send_message(chat_id, "Welcome! Send me your name and I'll create a card for you.")
-    
+
     return "OK"
 
 # Function to send a message back to the user
@@ -30,4 +33,5 @@ def send_message(chat_id, text):
     requests.post(url, json=payload)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Run Flask on the port provided by Render (or default to 5000)
+    app.run(host="0.0.0.0", port=port)
