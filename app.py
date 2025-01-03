@@ -74,9 +74,11 @@ def webhook():
                     print(f"User's name: {name}")
 
                     # Generate the card image with the name and the customization options chosen
-                    generate_card_image(name)  # Function to generate the card image (you'll need to implement this)
+                    image_path = generate_card_image(name)  # Function to generate the card image (you'll need to implement this)
                     
-                    send_message(chat_id, "Here is your custom card!")
+                    # Send the generated card image back to the user
+                    send_image(chat_id, image_path)
+                    
                     # Reset the user state after processing
                     user_state[chat_id] = None
                     print("User state reset")
@@ -112,8 +114,20 @@ def generate_card_image(name):
     draw.text(position, text, fill="black", font=font)
 
     # Save the image
-    img.save(f"/tmp/{name}_card.png")
-    print(f"Card saved as /tmp/{name}_card.png")
+    file_path = f"/tmp/{name}_card.png"
+    img.save(file_path)
+    print(f"Card saved as {file_path}")
+    return file_path
+
+# Function to send an image back to the user
+def send_image(chat_id, image_path):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
+    with open(image_path, 'rb') as image_file:
+        payload = {
+            'chat_id': chat_id,
+        }
+        files = {'photo': image_file}
+        requests.post(url, data=payload, files=files)
 
 # Run the app on Render or local development
 if __name__ == "__main__":
