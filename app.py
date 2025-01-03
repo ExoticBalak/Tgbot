@@ -21,6 +21,10 @@ greetings = [
 BOT_TOKEN = "7514750197:AAF4cUNMkMx8ekhIQmG7kZxRZqnRKyueiPI"
 RENDER_URL = "https://tgbot-6qe5.onrender.com"
 
+@app.route("/", methods=["GET"])
+def home():
+    return "Bot is running!"
+    
 # Route for the webhook
 @app.route(f"/webhook/{BOT_TOKEN}", methods=["POST"])
 def webhook():
