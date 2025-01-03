@@ -4,7 +4,7 @@ from PIL import Image, ImageDraw, ImageFont
 import io
 
 app = Flask(__name__)
-BOT_TOKEN = "YOUR_BOT_TOKEN"
+BOT_TOKEN = "7514750197:AAF4cUNMkMx8ekhIQmG7kZxRZqnRKyueiPI"
 
 # Webhook route
 @app.route(f"/webhook/{BOT_TOKEN}", methods=["POST"])
