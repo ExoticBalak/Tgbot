@@ -1,8 +1,9 @@
-from flask import Flask, request
-import os
+import random
 import requests
+from flask import Flask, request
 from PIL import Image, ImageDraw, ImageFont
 import io
+import os
 
 app = Flask(__name__)
 
@@ -12,37 +13,108 @@ port = int(os.environ.get("PORT", 5000))
 # Your bot's token
 BOT_TOKEN = "7514750197:AAF4cUNMkMx8ekhIQmG7kZxRZqnRKyueiPI"
 
-# Store the state of the user (whether they're waiting for a name)
-user_state = {}
+# List of random greeting quotes
+greeting_quotes = [
+    "Hello! You're amazing! 💫",
+    "Welcome! Let's create something beautiful today! 🌟",
+    "Hey there! Ready to create your custom card? 🎨",
+    "Hi! I'm here to make your card special! ✨"
+]
 
-# Define a simple home route for debugging
-@app.route("/", methods=["GET"])
-def home():
-    return "Bot is running!"
+# Function to get a random greeting quote
+def get_random_greeting():
+    return random.choice(greeting_quotes)
+
+# Main Menu Options
+menu_options = """
+Please choose one of the following options:
+1. /help - Get help
+2. /info - Learn about the bot
+3. /customize - Start customizing your card
+"""
+
+# Dictionary to track user state
+user_state = {}
 
 # Define the webhook endpoint
 @app.route(f"/webhook/{BOT_TOKEN}", methods=["POST"])
 def webhook():
     data = request.json
-    print("Received data:", data)  # Debugging log
+    print("Received data:", data)
 
-    # Check if there's a message
     if "message" in data:
         message = data["message"]
         if "text" in message:
             text = message["text"]
             chat_id = message["chat"]["id"]
 
-            # If it's the /start command, ask for the name
+            # Handle /start command
             if text == "/start":
-                send_message(chat_id, "Welcome! Send me your name and I'll create a card for you.")
-                user_state[chat_id] = "waiting_for_name"
+                greeting = get_random_greeting()
+                send_message(chat_id, greeting)
+                send_message(chat_id, menu_options)
+                user_state[chat_id] = "waiting_for_menu"
 
-            # If user is in 'waiting_for_name' state, generate the card with the name
+            # Handle menu options
+            elif chat_id in user_state and user_state[chat_id] == "waiting_for_menu":
+                if text == "/help":
+                    send_message(chat_id, "This bot helps you create custom greeting cards with your name!")
+                elif text == "/info":
+                    send_message(chat_id, "This bot was created to let you design beautiful custom cards with different backgrounds, text styles, and more.")
+                elif text == "/customize":
+                    send_message(chat_id, "Let's start customizing your card! Choose the background style (color, gradient, or design):")
+                    user_state[chat_id] = "waiting_for_background_style"
+            
+            # Handle background style customization
+            elif chat_id in user_state and user_state[chat_id] == "waiting_for_background_style":
+                if text in ["color", "gradient", "design"]:
+                    user_state[chat_id + "_background_style"] = text
+                    send_message(chat_id, f"Background style set to {text}. Now, choose the text size (small, medium, large):")
+                    user_state[chat_id] = "waiting_for_text_size"
+                else:
+                    send_message(chat_id, "Invalid choice! Please choose between 'color', 'gradient', or 'design'.")
+
+            # Handle text size customization
+            elif chat_id in user_state and user_state[chat_id] == "waiting_for_text_size":
+                if text in ["small", "medium", "large"]:
+                    user_state[chat_id + "_text_size"] = text
+                    send_message(chat_id, "Text size set. Now, choose the font style (e.g., Arial, Times New Roman):")
+                    user_state[chat_id] = "waiting_for_font"
+                else:
+                    send_message(chat_id, "Invalid size! Please choose 'small', 'medium', or 'large'.")
+            
+            # Handle font style customization
+            elif chat_id in user_state and user_state[chat_id] == "waiting_for_font":
+                user_state[chat_id + "_font"] = text
+                send_message(chat_id, "Font style set. Now, choose the resolution (small, medium, large):")
+                user_state[chat_id] = "waiting_for_resolution"
+
+            # Handle resolution customization
+            elif chat_id in user_state and user_state[chat_id] == "waiting_for_resolution":
+                if text in ["small", "medium", "large"]:
+                    user_state[chat_id + "_resolution"] = text
+                    send_message(chat_id, "Resolution set. Please send your name:")
+                    user_state[chat_id] = "waiting_for_name"
+                else:
+                    send_message(chat_id, "Invalid resolution! Please choose 'small', 'medium', or 'large'.")
+
+            # Handle name input and generate the card
             elif chat_id in user_state and user_state[chat_id] == "waiting_for_name":
-                user_state[chat_id] = "name_received"
-                name = message["text"]
-                send_card(chat_id, name)
+                user_state[chat_id + "_name"] = text
+                send_message(chat_id, f"Name set to {text}. Generating your card...")
+                
+                # Generate the card image with user preferences
+                img = generate_card_image(chat_id)
+                
+                # Save image to a byte buffer
+                img_byte_arr = io.BytesIO()
+                img.save(img_byte_arr, format='PNG')
+                img_byte_arr.seek(0)
+
+                # Send the image as a file
+                files = {'photo': ('card.png', img_byte_arr, 'image/png')}
+                send_image(chat_id, files)
+                send_message(chat_id, f"Your custom card has been created with the name {text}!")
 
     return "OK"
 
@@ -52,43 +124,55 @@ def send_message(chat_id, text):
     payload = {"chat_id": chat_id, "text": text}
     requests.post(url, json=payload)
 
-# Function to generate a card image and send it
-def send_card(chat_id, name):
-    # Create an image with the name
-    image = create_card_image(name)
-    
-    # Convert the image to a byte array to send it via Telegram API
-    image_byte_array = image_to_byte_array(image)
-    
-    # Send the image to the user
+# Function to send an image to the user
+def send_image(chat_id, files):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
-    files = {'photo': ('card.png', image_byte_array, 'image/png')}
     payload = {'chat_id': chat_id}
     requests.post(url, data=payload, files=files)
 
-# Function to create a card image with the user's name
-def create_card_image(name):
-    # Create a blank white image
-    image = Image.new('RGB', (400, 200), color='white')
-    draw = ImageDraw.Draw(image)
+# Function to generate a greeting card image based on user preferences
+def generate_card_image(chat_id):
+    # Set defaults or get from user state
+    background_style = user_state.get(chat_id + "_background_style", "color")
+    text_size = user_state.get(chat_id + "_text_size", "medium")
+    font_style = user_state.get(chat_id + "_font", "Arial")
+    resolution = user_state.get(chat_id + "_resolution", "medium")
+    name = user_state.get(chat_id + "_name", "User")
 
-    # Load a font
-    font = ImageFont.load_default()
+    # Set dimensions based on resolution choice
+    if resolution == "small":
+        width, height = 300, 200
+    elif resolution == "medium":
+        width, height = 500, 300
+    else:
+        width, height = 700, 400
+
+    # Create a blank image
+    img = Image.new('RGB', (width, height), color=(255, 255, 255))
+
+    # Draw on the image
+    draw = ImageDraw.Draw(img)
     
-    # Add the name text to the image
-    text = f"Hello, {name}!"
-    text_width, text_height = draw.textsize(text, font)
-    position = ((400 - text_width) // 2, (200 - text_height) // 2)  # Center the text
-    draw.text(position, text, fill="black", font=font)
+    # Set text size based on user choice
+    if text_size == "small":
+        font_size = 20
+    elif text_size == "medium":
+        font_size = 40
+    else:
+        font_size = 60
 
-    return image
+    # Load font
+    try:
+        font = ImageFont.truetype("arial.ttf", font_size)
+    except IOError:
+        font = ImageFont.load_default()
 
-# Function to convert image to byte array
-def image_to_byte_array(image):
-    byte_array = io.BytesIO()
-    image.save(byte_array, format='PNG')
-    byte_array.seek(0)
-    return byte_array
+    # Draw the user's name on the image
+    text_width, text_height = draw.textsize(name, font=font)
+    position = ((width - text_width) // 2, (height - text_height) // 2)
+    draw.text(position, name, font=font, fill="black")
+
+    return img
 
 if __name__ == "__main__":
     # Run Flask on the port provided by Render (or default to 5000)
