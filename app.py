@@ -36,6 +36,10 @@ Please choose one of the following options:
 # Dictionary to track user state
 user_state = {}
 
+@app.route("/", methods=["GET"])
+def home():
+    return "Bot is running!"
+
 # Define the webhook endpoint
 @app.route(f"/webhook/{BOT_TOKEN}", methods=["POST"])
 def webhook():
