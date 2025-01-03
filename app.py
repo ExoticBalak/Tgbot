@@ -1,5 +1,6 @@
 from flask import Flask, request
 import os
+import requests
 
 app = Flask(__name__)
 
@@ -8,6 +9,11 @@ port = int(os.environ.get("PORT", 5000))
 
 # Your bot's token
 BOT_TOKEN = "7514750197:AAF4cUNMkMx8ekhIQmG7kZxRZqnRKyueiPI"
+
+# Define a simple home route for debugging
+@app.route("/", methods=["GET"])
+def home():
+    return "Bot is running!"
 
 # Define the webhook endpoint
 @app.route(f"/webhook/{BOT_TOKEN}", methods=["POST"])
